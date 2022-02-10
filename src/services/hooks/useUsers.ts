@@ -1,15 +1,27 @@
 import { useQuery } from "react-query";
 import { api } from "../api";
+import { queryClient } from "../queryClient";
 
 type User = {
   id: string;
   name: string;
   email: string;
   createdAt: string;
-}
+};
 
-export async function getUsers(): Promise<User[]> {
-  const { data } = await api.get("users");
+type GetUserResponse = {
+  totalCount: number;
+  users: User[];
+};
+
+export async function getUsers(page: number): Promise<GetUserResponse> {
+  const { data, headers } = await api.get("users", {
+    params: {
+      page,
+    },
+  });
+
+  const totalCount = Number(headers["x-total-count"]);
 
   const users = data.users.map((user) => {
     return {
@@ -24,11 +36,26 @@ export async function getUsers(): Promise<User[]> {
     };
   });
 
-  return users;
+  return {
+    users,
+    totalCount,
+  };
 }
 
-export function useUsers() {
-  return useQuery("users", getUsers, {
-    staleTime: 1000 * 10, // 10 seconds
+export async function getUser(userId: number) {
+  const response = await api.get(`users/${userId}`);
+
+  return response.data;
+}
+
+export function useUsers(page: number) {
+  return useQuery(["users", page], () => getUsers(page), {
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+export function getUserId(userId: number) {
+  return queryClient.prefetchQuery(['user', userId], () => getUser(userId), {
+    staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }
